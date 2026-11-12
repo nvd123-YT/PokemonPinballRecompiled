@@ -68,12 +68,30 @@ def launcher_environment(sdl2_root: str = "") -> dict[str, str]:
     existing = env.get("PATH", "")
     env["PATH"] = os.pathsep.join(path_entries + [existing])
 
-    if sdl2_root.strip():
-        env["SDL2_ROOT"] = str(Path(sdl2_root).expanduser())
-    elif sys.platform == "darwin":
+    selected_sdl = sdl2_root.strip()
+    if not selected_sdl and sys.platform == "darwin":
         default_sdl = Path.home() / "Tools" / "SDL2"
         if default_sdl.is_dir():
-            env["SDL2_ROOT"] = str(default_sdl)
+            selected_sdl = str(default_sdl)
+
+    if selected_sdl:
+        sdl_root = Path(selected_sdl).expanduser()
+        env["SDL2_ROOT"] = str(sdl_root)
+        library_dirs = [
+            str(sdl_root / relative)
+            for relative in ("lib", "lib64", "bin", "lib/x64")
+            if (sdl_root / relative).is_dir()
+        ]
+        if os.name == "nt":
+            env["PATH"] = os.pathsep.join(library_dirs + [env.get("PATH", "")])
+        elif sys.platform == "darwin":
+            env["DYLD_LIBRARY_PATH"] = os.pathsep.join(
+                library_dirs + [env.get("DYLD_LIBRARY_PATH", "")]
+            )
+        else:
+            env["LD_LIBRARY_PATH"] = os.pathsep.join(
+                library_dirs + [env.get("LD_LIBRARY_PATH", "")]
+            )
 
     return env
 
