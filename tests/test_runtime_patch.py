@@ -7,6 +7,8 @@ from pathlib import Path
 from build import (
     apply_pokemon_pinball_enhancements,
     find_sdl2_cmake_dir,
+    prepare_bundled_sdl2,
+    create_zig_tool_wrappers,
     recompiler_has_runtime_snapshot,
 )
 
@@ -109,6 +111,45 @@ class LocalBuildDependencyTests(unittest.TestCase):
             (runtime / "src" / "gbrt.c").write_text("/* test */")
             (runtime / "vendor" / "imgui" / "imgui.cpp").write_text("// test")
             self.assertTrue(recompiler_has_runtime_snapshot(executable))
+
+
+    def test_bundled_sdl2_is_copied_to_persistent_work_directory(self) -> None:
+        import sys
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            extracted = root / "bundle"
+            sdk = extracted / "vendor-tools" / "sdl2"
+            config = sdk / "lib" / "cmake" / "SDL2" / "SDL2Config.cmake"
+            config.parent.mkdir(parents=True)
+            config.write_text("# relocatable sdk test\\n")
+            old = getattr(sys, "_MEIPASS", None)
+            sys._MEIPASS = str(extracted)
+            try:
+                persistent = prepare_bundled_sdl2(root / "work")
+            finally:
+                if old is None:
+                    del sys._MEIPASS
+                else:
+                    sys._MEIPASS = old
+
+            self.assertEqual(persistent, root / "work" / ".toolchain" / "sdl2")
+            self.assertTrue((persistent / "lib" / "cmake" / "SDL2" / "SDL2Config.cmake").is_file())
+
+    def test_zig_archiver_wrappers_are_created(self) -> None:
+        import os
+
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            zig = root / ("zig.exe" if os.name == "nt" else "zig")
+            zig.write_text("placeholder")
+            ar, ranlib = create_zig_tool_wrappers(zig, root / "work")
+            self.assertTrue(ar.is_file())
+            self.assertTrue(ranlib.is_file())
+            if os.name != "nt":
+                self.assertTrue(ar.stat().st_mode & 0o111)
+                self.assertTrue(ranlib.stat().st_mode & 0o111)
+
 
 
 if __name__ == "__main__":
