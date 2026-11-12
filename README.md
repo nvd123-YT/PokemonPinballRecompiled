@@ -2,86 +2,90 @@
 
 A public, source-first local build project for Pokémon Pinball (Game Boy Color).
 
-**This repository does not contain the game ROM, generated ROM-derived source, or a prebuilt copy of the game.** Each player supplies a legally obtained .gb or .gbc file on their own computer. The builder reads that local file, generates the C project locally, compiles it, and launches the result. The ROM is not uploaded to GitHub or sent to this project.
+**This repository does not contain the game ROM, generated ROM-derived source, or a prebuilt copy of the game.** Each player supplies a legally obtained .gb, .gbc, or .sgb file on their own computer. The launcher reads that local file, generates the C project locally, compiles it, and launches the result. The ROM is not uploaded to GitHub or sent to this project.
 
-## Quick start
+## Desktop launcher
 
-### macOS (Apple silicon or Intel)
+Download the latest platform launcher from the [Nightly Releases](https://github.com/nvd123-YT/PokemonPinballRecompiled/releases/tag/Nightly):
 
-Install or make available:
+- **macOS Apple silicon:** `PokemonPinballRecompiled-macos-arm64.dmg`
+- **Windows x64:** `PokemonPinballRecompiled.exe`
+- **Linux x64:** `PokemonPinballRecompiled-linux-x86_64.AppImage`
 
+Open the launcher, select your local Game Boy/Game Boy Color ROM, choose a build folder, and click **Build & Play**. The launcher remembers the selected paths. After the first successful build, use **Play Existing Build** to start it again without recompiling.
+
+The launcher package contains no game ROM, generated game code, or game executable. It downloads the ROM-free GB Recompiled tool package when needed and generates the game locally.
+
+### Build prerequisites
+
+The launcher is a graphical front end; the native build tools are still required to compile the generated game.
+
+**macOS**
 - Xcode Command Line Tools (Clang)
 - CMake 3.20 or newer
 - Ninja
-- Python 3
 - SDL2 development files
 
-Your local SDL2 installation can be selected with the SDL2_ROOT environment variable. The builder automatically checks ~/Tools/SDL2, which is useful for the setup used during this project's initial macOS test.
+The launcher automatically checks `~/Tools/SDL2` for SDL2 and searches common tool directories for CMake and Ninja.
 
-From a Terminal in this repository:
-
-    python3 build.py "/path/to/your/Pokemon Pinball.gbc"
-
-Or:
-
-    SDL2_ROOT="$HOME/Tools/SDL2" python3 build.py "/path/to/your/Pokemon Pinball.gbc"
-
-The builder reuses ~/Tools/GBRecompiled/build/bin/gbrecomp when it exists. Otherwise, it downloads the ROM-free GB Recompiled 0.1.0 tool archive for your Mac architecture.
-
-### Windows x64
-
-Install:
-
-- Python 3
-- CMake 3.20 or newer
-- Ninja
+**Windows x64**
+- Python is bundled in the launcher; no separate Python installation is required.
+- CMake 3.20 or newer and Ninja
 - Visual Studio 2022 with the Desktop development with C++ workload
-- vcpkg and the SDL2 development package
+- vcpkg with SDL2 installed for x64: `vcpkg install sdl2:x64-windows`
+- Set `VCPKG_ROOT` to your vcpkg directory.
 
-In a Visual Studio Developer PowerShell, install SDL2 for x64:
-
-    vcpkg install sdl2:x64-windows
-
-Set VCPKG_ROOT to your vcpkg directory, then run:
-
-    .\build-windows.ps1 "C:\Games\Pokemon Pinball.gbc"
-
-The builder uses the upstream Windows x64 recompiler package. The ROM remains on your PC.
-
-### Linux x64 (Ubuntu/Debian)
-
-Install the build dependencies:
+**Linux x64 (Ubuntu/Debian)**
+- CMake, Ninja, a C/C++ toolchain, and SDL2 development files:
 
     sudo apt update
     sudo apt install python3 cmake ninja-build build-essential libsdl2-dev
 
-Then run:
+The launcher bundles Python and Tk. It does not install system compilers or SDL2 development packages.
 
-    python3 build.py "$HOME/Games/Pokemon Pinball.gbc"
+## Graphics and runtime enhancements
 
-The builder uses the upstream Linux x64 recompiler package.
+While the game is running, press **F10** or **Escape** to open the built-in runtime settings.
 
-## Output and saves
+- **Fullscreen:** uses the current desktop display mode. On a compatible 8K display and graphics system, the game can be presented at the display's 8K output resolution.
+- **Scaling Mode:** Pixel Perfect, Aspect Fit, Aspect Fill, and Stretch.
+- **Scale Filter:** Nearest for crisp pixel art or Linear for smoother scaling.
+- **Runtime:** V-Sync, performance overlay, slow-frame smoothing, and adjustable speed.
+- **Audio:** enable/disable output, mute, volume, latency, and output-device selection.
+- **Controls:** remap keyboard and controller actions.
+- **Persistence:** battery saves and ten savestate slots.
 
-Generated source and build products are kept outside this Git repository, under:
+**Important resolution note:** the original Game Boy frame is 160×144 pixels. 4K or 8K is output upscaling, not newly generated HD artwork or additional game detail. Aspect Fit shows the complete image without distortion (with side bars on a widescreen display); Aspect Fill fills the display by cropping part of the image; Stretch fills the display but distorts the original aspect ratio. None of these modes expands the game's original playfield.
+
+## Build from source
+
+Install Python 3, CMake, Ninja, a C/C++ compiler, and SDL2 development files, then run:
+
+    python3 launcher.py
+
+Or build without the GUI:
+
+    python3 build.py "/path/to/your/Pokemon Pinball.gbc"
+
+Generated source and build products are kept outside this Git repository by default, under:
 
     ~/PokemonPinballRecompiledBuild/
 
-During a rebuild, the builder replaces only its own generated project folder. It launches the game with ~/PokemonPinballRecompiledBuild as the current working directory, keeping runtime files and saves outside the Git repository.
+Use `python3 build.py --help` for command-line options.
 
-Use --no-run to compile without launching, --jobs N to set the build parallelism, --sdl2-root PATH to select SDL2, and --work-dir PATH to choose another output folder. Run:
+## GitHub Actions
 
-    python3 build.py --help
+Every push to `main` validates and packages the standalone launcher for macOS arm64, Windows x64, and Linux x64. Successful main-branch builds update the [Nightly release](https://github.com/nvd123-YT/PokemonPinballRecompiled/releases/tag/Nightly).
 
-## What the public GitHub workflow does
-
-GitHub Actions checks the Python builder and the platform launch scripts on macOS, Windows, and Linux. It does not build or release the game: a public runner does not have your local ROM, and this repository intentionally never stores one. The actual game generation and compilation happen on each player's computer.
+The release contains the launcher only. It does not build or publish the game because GitHub runners do not receive a user's local ROM.
 
 ## Compatibility and scope
 
-The upstream GB Recompiled project supplies the static recompiler and SDL2-based Game Boy runtime. Its published 0.1.0 tool archives cover macOS Apple silicon, macOS Intel, Windows x64, and Linux x64. This project has been confirmed to generate and run the game on the developer's Apple-silicon Mac; Windows and Linux builds still need independent testing.
+The upstream GB Recompiled project supplies the static recompiler and SDL2-based Game Boy runtime. This project has been confirmed to generate and run the game on an Apple-silicon Mac. Windows and Linux game builds still need independent testing.
 
 This is an unofficial fan project and is not affiliated with or endorsed by Nintendo, The Pokémon Company, Game Freak, or Creatures. Pokémon and related marks are the property of their respective owners. Users are responsible for obtaining and using ROM images lawfully.
+
+The macOS package is ad-hoc signed by CI but is not Developer ID signed or notarized. Windows builds are also unsigned; operating systems may display their normal first-run security warnings.
 
 ## Upstream
 
