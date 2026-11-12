@@ -30,3 +30,9 @@ __pycache__/
 .cache/
 .DS_Store
 Thumbs.db
+
+# PyInstaller / desktop packaging
+/dist/
+/AppDir/
+*.spec
+appimagetool.AppImage
