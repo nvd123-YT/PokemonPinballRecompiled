@@ -48,6 +48,7 @@ The launcher bundles Python and Tk. It does not install system compilers or SDL2
 While the game is running, press **F10** or **Escape** to open the built-in runtime settings.
 
 - **Fullscreen:** uses the current desktop display mode. On a compatible 8K display and graphics system, the game can be presented at the display's 8K output resolution.
+- **Widescreen Backdrop:** an optional dimmed, softly scaled copy of the current frame fills unused widescreen space while the original playfield stays centered and undistorted. The setting is saved between launches.
 - **Scaling Mode:** Pixel Perfect, Aspect Fit, Aspect Fill, and Stretch.
 - **Scale Filter:** Nearest for crisp pixel art or Linear for smoother scaling.
 - **Runtime:** V-Sync, performance overlay, slow-frame smoothing, and adjustable speed.
@@ -55,7 +56,7 @@ While the game is running, press **F10** or **Escape** to open the built-in runt
 - **Controls:** remap keyboard and controller actions.
 - **Persistence:** battery saves and ten savestate slots.
 
-**Important resolution note:** the original Game Boy frame is 160×144 pixels. 4K or 8K is output upscaling, not newly generated HD artwork or additional game detail. Aspect Fit shows the complete image without distortion (with side bars on a widescreen display); Aspect Fill fills the display by cropping part of the image; Stretch fills the display but distorts the original aspect ratio. None of these modes expands the game's original playfield.
+**Important resolution note:** the original Game Boy frame is 160×144 pixels. Fullscreen uses the current desktop display mode, so output can reach 4K or 8K on a compatible monitor/GPU/OS setup. That is output upscaling, not newly generated HD artwork or additional game detail. The Widescreen Backdrop fills unused screen space without changing the playfield. Aspect Fit shows the complete image without distortion; Aspect Fill fills the display by cropping part of the image; Stretch fills the display but distorts the original aspect ratio. None of these modes expands the game's original playfield or viewing area.
 
 ## Build from source
 
