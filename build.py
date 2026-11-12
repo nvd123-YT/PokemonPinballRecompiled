@@ -86,6 +86,13 @@ def resolve_build_tools() -> tuple[Path, Path, Path | None]:
             "The launcher package is missing bundled " + " and ".join(missing)
             + ". Download the latest launcher release."
         )
+
+    # PyInstaller's one-file data extraction does not promise executable mode
+    # bits for every platform. Restore them before invoking packaged tools.
+    if os.name != "nt":
+        for executable in (cmake, ninja, zig):
+            if executable is not None and executable.is_file():
+                executable.chmod(executable.stat().st_mode | 0o111)
     return cmake, ninja, zig
 
 
