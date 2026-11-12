@@ -41,6 +41,92 @@ def run_command(command: list[str], *, cwd: Path | None = None,
     subprocess.run(command, cwd=str(cwd) if cwd else None, env=env, check=True)
 
 
+def bundle_root() -> Path:
+    """Return the extracted one-file bundle directory or the source directory."""
+    extracted = getattr(sys, "_MEIPASS", None)
+    return Path(extracted) if extracted else Path(__file__).resolve().parent
+
+
+def bundled_tools_dir() -> Path:
+    return bundle_root() / "vendor-tools"
+
+
+def resolve_build_tools() -> tuple[Path, Path, Path | None]:
+    """Resolve bundled CMake/Ninja/Zig first, then developer-installed tools."""
+    tools = bundled_tools_dir()
+    suffix = ".exe" if os.name == "nt" else ""
+    cmake_candidates = [
+        tools / "cmake" / "bin" / ("cmake" + suffix),
+        tools / "cmake" / "CMake.app" / "Contents" / "bin" / "cmake",
+    ]
+    ninja_candidates = [tools / ("ninja" + suffix)]
+    zig_candidates = [tools / "ziglang" / ("zig" + suffix)]
+
+    cmake = next((p for p in cmake_candidates if p.is_file()), None)
+    ninja = next((p for p in ninja_candidates if p.is_file()), None)
+    zig = next((p for p in zig_candidates if p.is_file()), None)
+
+    if cmake is None:
+        found = shutil.which("cmake")
+        cmake = Path(found) if found else None
+    if ninja is None:
+        found = shutil.which("ninja")
+        ninja = Path(found) if found else None
+    if zig is None:
+        found = shutil.which("zig")
+        zig = Path(found) if found else None
+
+    missing = []
+    if cmake is None:
+        missing.append("CMake")
+    if ninja is None:
+        missing.append("Ninja")
+    if missing:
+        raise RuntimeError(
+            "The launcher package is missing bundled " + " and ".join(missing)
+            + ". Download the latest launcher release."
+        )
+    return cmake, ninja, zig
+
+
+def bundled_sdl2_root() -> Path | None:
+    candidate = bundled_tools_dir() / "sdl2"
+    if candidate.is_dir():
+        return candidate
+    return None
+
+
+def bundled_recompiler_root() -> Path | None:
+    candidate = bundled_tools_dir() / "gb-recompiled"
+    return candidate if candidate.is_dir() else None
+
+
+def cmake_compiler_arguments(zig: Path | None) -> list[str]:
+    if zig is None:
+        return []
+    arguments = [
+        "-DCMAKE_C_COMPILER=" + str(zig),
+        "-DCMAKE_C_COMPILER_ARG1=cc",
+        "-DCMAKE_CXX_COMPILER=" + str(zig),
+        "-DCMAKE_CXX_COMPILER_ARG1=c++",
+    ]
+    if platform.system() == "Darwin":
+        # Zig uses Apple's SDK for system frameworks; the SDK is installed with
+        # Xcode Command Line Tools and cannot be redistributed with this app.
+        xcrun = shutil.which("xcrun")
+        if not xcrun:
+            raise RuntimeError(
+                "Xcode Command Line Tools are required on macOS. Run "
+                "'xcode-select --install' and try again."
+            )
+        sdk = subprocess.check_output(
+            [xcrun, "--sdk", "macosx", "--show-sdk-path"], text=True
+        ).strip()
+        if sdk:
+            arguments.append("-DCMAKE_OSX_SYSROOT=" + sdk)
+    return arguments
+
+
 def find_recompiler(root: Path) -> Path | None:
     expected = "gbrecomp.exe" if os.name == "nt" else "gbrecomp"
     candidates = [p for p in root.rglob(expected) if p.is_file()]
@@ -69,6 +155,12 @@ def platform_asset() -> str:
 
 
 def download_recompiler() -> Path:
+    bundled = bundled_recompiler_root()
+    if bundled is not None:
+        executable = find_recompiler(bundled)
+        if executable and recompiler_has_runtime_snapshot(executable):
+            return executable
+
     override = os.environ.get("GBRECOMP")
     if override:
         path = Path(override).expanduser().resolve()
@@ -137,15 +229,6 @@ def download_recompiler() -> Path:
 
 def choose_sdl2_root(argument: str | None) -> Path | None:
     candidate = argument or os.environ.get("SDL2_ROOT")
-    if not candidate and platform.system() == "Darwin":
-        defaults = [
-            Path.home() / "Tools" / "SDL2",
-            Path("/opt/homebrew/opt/sdl2"),
-            Path("/usr/local/opt/sdl2"),
-        ]
-        candidate_path = next((path for path in defaults if path.is_dir()), None)
-        if candidate_path is not None:
-            candidate = str(candidate_path)
     if candidate:
         root = Path(candidate).expanduser().resolve()
         if not root.is_dir():
@@ -433,13 +516,19 @@ def main() -> int:
     if args.jobs < 1:
         raise RuntimeError("--jobs must be at least 1.")
 
-    for tool in ("cmake", "ninja"):
-        if not shutil.which(tool):
-            raise RuntimeError(
-                tool + " was not found on PATH. Install it before building."
-            )
-
-    sdl2_root = choose_sdl2_root(args.sdl2_root)
+    cmake, ninja, zig = resolve_build_tools()
+    sdl2_root = choose_sdl2_root(args.sdl2_root) or bundled_sdl2_root()
+    if sdl2_root is None:
+        raise RuntimeError(
+            "The launcher is missing its bundled SDL2 development SDK. "
+            "Download the latest launcher release."
+        )
+    sdl2_cmake_dir = find_sdl2_cmake_dir(sdl2_root)
+    if sdl2_cmake_dir is None:
+        raise RuntimeError(
+            "The bundled SDL2 SDK is incomplete: SDL2Config.cmake was not found "
+            "under " + str(sdl2_root)
+        )
     recompiler = download_recompiler()
 
     work_dir = Path(args.work_dir).expanduser().resolve()
@@ -469,44 +558,23 @@ def main() -> int:
     apply_pokemon_pinball_enhancements(generated)
 
     cmake_command = [
-        "cmake",
+        str(cmake),
         "-G",
         "Ninja",
+        "-DCMAKE_MAKE_PROGRAM=" + str(ninja),
         "-S",
         str(generated),
         "-B",
         str(build_dir),
+        "-DSDL2_ROOT=" + str(sdl2_root),
+        "-DCMAKE_PREFIX_PATH=" + str(sdl2_root),
+        "-DSDL2_DIR=" + str(sdl2_cmake_dir),
     ]
-    if sdl2_root:
-        cmake_command.append("-DCMAKE_PREFIX_PATH=" + str(sdl2_root))
-        cmake_command.append("-DSDL2_ROOT=" + str(sdl2_root))
-    sdl2_cmake_dir = find_sdl2_cmake_dir(sdl2_root)
-    if sdl2_cmake_dir:
-        cmake_command.append("-DSDL2_DIR=" + str(sdl2_cmake_dir))
-    elif sdl2_root:
-        print(
-            "Note: no SDL2Config.cmake was found under " + str(sdl2_root)
-            + "; CMake will still try its normal package search."
-        )
-
-    if os.name == "nt":
-        vcpkg_root = os.environ.get("VCPKG_ROOT")
-        if vcpkg_root:
-            toolchain = (
-                Path(vcpkg_root)
-                / "scripts"
-                / "buildsystems"
-                / "vcpkg.cmake"
-            )
-            if toolchain.is_file():
-                cmake_command.append(
-                    "-DCMAKE_TOOLCHAIN_FILE=" + str(toolchain)
-                )
-                cmake_command.append("-DVCPKG_TARGET_TRIPLET=x64-windows")
+    cmake_command.extend(cmake_compiler_arguments(zig))
 
     run_command(cmake_command)
     run_command(
-        ["cmake", "--build", str(build_dir), "--parallel", str(args.jobs)]
+        [str(cmake), "--build", str(build_dir), "--parallel", str(args.jobs)]
     )
 
     executable = find_game_executable(build_dir, generated.name)
