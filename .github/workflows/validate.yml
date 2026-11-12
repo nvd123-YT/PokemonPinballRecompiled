@@ -28,6 +28,9 @@ jobs:
       - name: Compile-check the builder
         run: python -m py_compile build.py
 
+      - name: Test generated runtime enhancement
+        run: python -m unittest discover -s tests -v
+
       - name: Check builder help
         run: python build.py --help
 
