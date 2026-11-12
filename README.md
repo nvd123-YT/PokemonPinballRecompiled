@@ -67,7 +67,7 @@ Generated source and build products are kept outside this Git repository, under:
 
     ~/PokemonPinballRecompiledBuild/
 
-The builder only replaces its own generated project folder during a rebuild. It launches the game with the build directory as its working directory so runtime save files remain in the surrounding build folder rather than being committed to Git.
+During a rebuild, the builder replaces only its own generated project folder. It launches the game with ~/PokemonPinballRecompiledBuild as the current working directory, keeping runtime files and saves outside the Git repository.
 
 Use --no-run to compile without launching, --jobs N to set the build parallelism, --sdl2-root PATH to select SDL2, and --work-dir PATH to choose another output folder. Run:
 
