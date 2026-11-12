@@ -236,7 +236,9 @@ class Launcher:
             text=(
                 "The renderer can use your display's native fullscreen resolution, "
                 "including 4K/8K displays when supported by your monitor and graphics "
-                "driver. Scale Filter offers Nearest (sharp pixel art) or Linear "
+                "driver. Enable Widescreen Backdrop to fill unused side space with a "
+                "dimmed copy of the current frame while keeping the full game image "
+                "centered. Scale Filter offers Nearest (sharp pixel art) or Linear "
                 "(smoother scaling). Other runtime options include V-Sync, slow-frame "
                 "smoothing, audio controls, speed controls, overlays, save states, "
                 "and keyboard/controller remapping."
