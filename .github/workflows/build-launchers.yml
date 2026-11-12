@@ -95,6 +95,45 @@ jobs:
       - name: Bundle the ROM-free GB recompiler
         run: python scripts/stage_recompiler.py
 
+      - name: Preserve third-party toolchain license notices
+        shell: python
+        run: |
+          import importlib.metadata
+          import pathlib
+          import shutil
+
+          root = pathlib.Path.cwd()
+          destination = root / "vendor-tools" / "licenses"
+          packages = ("cmake", "ninja", "ziglang", "pyinstaller", "pyinstaller-hooks-contrib", "altgraph")
+          copied = 0
+
+          for package_name in packages:
+              try:
+                  distribution = importlib.metadata.distribution(package_name)
+              except importlib.metadata.PackageNotFoundError:
+                  continue
+              for item in distribution.files or ():
+                  relative = pathlib.PurePosixPath(str(item))
+                  filename = relative.name.lower()
+                  if not (
+                      filename.startswith("license")
+                      or filename.startswith("copying")
+                      or filename.startswith("notice")
+                      or filename.startswith("patents")
+                  ):
+                      continue
+                  source = pathlib.Path(distribution.locate_file(item))
+                  if not source.is_file():
+                      continue
+                  target = destination / package_name / pathlib.Path(*relative.parts)
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  shutil.copy2(source, target)
+                  copied += 1
+
+          if copied == 0:
+              raise SystemExit("No bundled toolchain license notices were found")
+          print(f"Preserved {copied} third-party license/notice files under {destination}")
+
       - name: Package desktop launcher with all local build dependencies
         shell: python
         run: |
