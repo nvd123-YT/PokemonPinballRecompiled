@@ -1,0 +1,184 @@
+name: Build launcher packages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build \${{ matrix.platform }} launcher
+    runs-on: \${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macOS arm64
+            os: macos-14
+            artifact: macos
+          - platform: Windows x64
+            os: windows-latest
+            artifact: windows
+          - platform: Linux x64
+            os: ubuntu-22.04
+            artifact: linux
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux GUI and AppImage dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libfuse2 libtk8.6 libtcl8.6 \
+            libx11-6 libxext6 libxrender1 libxft2 libfontconfig1
+
+      - name: Verify Python and Tk
+        run: python -c "import tkinter, build, launcher; print('Tk and launcher imports OK')"
+
+      - name: Compile-check sources
+        run: python -m py_compile build.py launcher.py
+
+      - name: Install PyInstaller
+        run: python -m pip install --upgrade pip pyinstaller
+
+      - name: Package desktop launcher
+        run: pyinstaller --clean --noconfirm --onefile --windowed --name PokemonPinballRecompiled launcher.py
+
+      - name: Create macOS DMG
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          codesign --force --deep --sign - dist/PokemonPinballRecompiled.app
+          mkdir -p dist/dmg-root
+          cp -R dist/PokemonPinballRecompiled.app dist/dmg-root/
+          ln -s /Applications dist/dmg-root/Applications
+          hdiutil create \
+            -volname "Pokemon Pinball Recompiled" \
+            -srcfolder dist/dmg-root \
+            -ov -format UDZO \
+            dist/PokemonPinballRecompiled-macos-arm64.dmg
+
+      - name: Create Linux AppImage
+        if: runner.os == 'Linux'
+        shell: bash
+        run: |
+          mkdir -p AppDir/usr/bin AppDir/usr/lib
+          mkdir -p AppDir/usr/share/applications
+          mkdir -p AppDir/usr/share/icons/hicolor/scalable/apps
+          cp dist/PokemonPinballRecompiled AppDir/usr/bin/PokemonPinballRecompiled
+
+          cat > AppDir/PokemonPinballRecompiled.desktop <<'EOF'
+          [Desktop Entry]
+          Type=Application
+          Name=Pokémon Pinball Recompiled
+          Comment=Build and play from a locally supplied ROM
+          Exec=PokemonPinballRecompiled
+          Icon=pokemon-pinball-recompiled
+          Categories=Game;Emulator;
+          Terminal=false
+          EOF
+          cp AppDir/PokemonPinballRecompiled.desktop AppDir/usr/share/applications/
+
+          cat > AppDir/usr/share/icons/hicolor/scalable/apps/pokemon-pinball-recompiled.svg <<'EOF'
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+            <rect x="12" y="12" width="232" height="232" rx="36" fill="#202a35"/>
+            <rect x="42" y="42" width="172" height="132" rx="12" fill="#9bbc0f" stroke="#f0f3d0" stroke-width="8"/>
+            <path d="M70 142V74h18l40 44V74h18v68h-17L88 98v44z" fill="#24351f"/>
+            <circle cx="177" cy="207" r="15" fill="#e94b55"/>
+            <circle cx="143" cy="207" r="15" fill="#e0c34a"/>
+          </svg>
+          EOF
+
+          cat > AppDir/AppRun <<'EOF'
+          #!/bin/sh
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export LD_LIBRARY_PATH="$HERE/usr/lib:$LD_LIBRARY_PATH"
+          exec "$HERE/usr/bin/PokemonPinballRecompiled" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+          python - <<'PY'
+          import pathlib
+          import re
+          import shutil
+          import subprocess
+          import _tkinter
+
+          output = subprocess.check_output(["ldd", _tkinter.__file__], text=True)
+          destination = pathlib.Path("AppDir/usr/lib")
+          for line in output.splitlines():
+              match = re.search(r"=>\s+(/[^ ]+)", line)
+              if not match:
+                  continue
+              source = pathlib.Path(match.group(1))
+              if source.name.startswith(("libtk", "libtcl")) and source.is_file():
+                  shutil.copy2(source, destination / source.name)
+          PY
+
+          wget -q -O appimagetool.AppImage \
+            https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x appimagetool.AppImage
+          ARCH=x86_64 APPIMAGE_EXTRACT_AND_RUN=1 \
+            ./appimagetool.AppImage AppDir \
+            dist/PokemonPinballRecompiled-linux-x86_64.AppImage
+
+      - name: Upload launcher package
+        uses: actions/upload-artifact@v4
+        with:
+          name: launcher-\${{ matrix.artifact }}
+          path: |
+            dist/PokemonPinballRecompiled-macos-arm64.dmg
+            dist/PokemonPinballRecompiled.exe
+            dist/PokemonPinballRecompiled-linux-x86_64.AppImage
+          if-no-files-found: error
+          retention-days: 14
+
+  publish-nightly:
+    name: Publish launcher Nightly
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download all platform packages
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          pattern: launcher-*
+          merge-multiple: true
+
+      - name: Publish or update Nightly release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: Nightly
+          name: Nightly
+          prerelease: true
+          draft: false
+          make_latest: false
+          overwrite_files: true
+          files: release-assets/*
+          body: |
+            Automatic desktop launcher builds from the latest main branch.
+
+            These downloads contain the launcher only, not Pokémon Pinball's ROM,
+            generated game source, or game executable. Run the launcher and select
+            a ROM stored locally on your own computer to generate your own build.
+
+            The game runtime provides fullscreen display output, scaling modes,
+            pixel/linear filters, V-Sync, audio controls, speed controls, save
+            states, overlays, and input remapping. 8K output depends on the host
+            display and GPU and scales the original 160x144 Game Boy image.
+        env:
+          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
