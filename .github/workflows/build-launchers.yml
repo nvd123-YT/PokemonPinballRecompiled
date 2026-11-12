@@ -103,6 +103,7 @@ jobs:
             <circle cx="143" cy="207" r="15" fill="#e0c34a"/>
           </svg>
           EOF
+          cp AppDir/usr/share/icons/hicolor/scalable/apps/pokemon-pinball-recompiled.svg AppDir/pokemon-pinball-recompiled.svg
 
           cat > AppDir/AppRun <<'EOF'
           #!/bin/sh
