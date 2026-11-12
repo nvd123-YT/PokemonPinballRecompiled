@@ -126,14 +126,45 @@ def bundled_recompiler_root() -> Path | None:
     return candidate if candidate.is_dir() else None
 
 
-def cmake_compiler_arguments(zig: Path | None) -> list[str]:
+def create_zig_tool_wrappers(zig: Path, work_dir: Path) -> tuple[Path, Path]:
+    """Create small CMake-compatible wrappers for Zig's archiver commands."""
+    wrapper_dir = work_dir / ".toolchain" / "wrappers"
+    wrapper_dir.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        ar = wrapper_dir / "zig-ar.cmd"
+        ranlib = wrapper_dir / "zig-ranlib.cmd"
+        ar.write_text(f'@echo off\n"{zig}" ar %*\n', encoding="utf-8")
+        ranlib.write_text(f'@echo off\n"{zig}" ranlib %*\n', encoding="utf-8")
+    else:
+        import shlex
+
+        ar = wrapper_dir / "zig-ar"
+        ranlib = wrapper_dir / "zig-ranlib"
+        quoted = shlex.quote(str(zig))
+        ar.write_text(f"#!/bin/sh\nexec {quoted} ar \"$@\"\n", encoding="utf-8")
+        ranlib.write_text(f"#!/bin/sh\nexec {quoted} ranlib \"$@\"\n", encoding="utf-8")
+        ar.chmod(0o755)
+        ranlib.chmod(0o755)
+    return ar, ranlib
+
+
+def cmake_compiler_arguments(
+    zig: Path | None, work_dir: Path
+) -> list[str]:
     if zig is None:
         return []
+    ar, ranlib = create_zig_tool_wrappers(zig, work_dir)
     arguments = [
         "-DCMAKE_C_COMPILER=" + str(zig),
         "-DCMAKE_C_COMPILER_ARG1=cc",
         "-DCMAKE_CXX_COMPILER=" + str(zig),
         "-DCMAKE_CXX_COMPILER_ARG1=c++",
+        "-DCMAKE_AR=" + str(ar),
+        "-DCMAKE_RANLIB=" + str(ranlib),
+        "-DCMAKE_C_COMPILER_AR=" + str(ar),
+        "-DCMAKE_C_COMPILER_RANLIB=" + str(ranlib),
+        "-DCMAKE_CXX_COMPILER_AR=" + str(ar),
+        "-DCMAKE_CXX_COMPILER_RANLIB=" + str(ranlib),
     ]
     if platform.system() == "Darwin":
         # Zig uses Apple's SDK for system frameworks; the SDK is installed with
@@ -599,7 +630,7 @@ def main() -> int:
         "-DCMAKE_BUILD_RPATH=" + str(sdl2_root / "lib"),
         "-DCMAKE_INSTALL_RPATH=" + str(sdl2_root / "lib"),
     ]
-    cmake_command.extend(cmake_compiler_arguments(zig))
+    cmake_command.extend(cmake_compiler_arguments(zig, work_dir))
 
     run_command(cmake_command)
     run_command(
