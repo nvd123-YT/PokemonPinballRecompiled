@@ -1,0 +1,24 @@
+# Local ROMs and user saves
+*.gb
+*.gbc
+*.sav
+*.srm
+*.rtc
+*.state
+
+# Recompiler output and local builds
+/build/
+/generated/
+/out/
+/PokemonPinballRecompiledBuild/
+*.rom.c
+*_main.c
+*_rom.c
+*_rom.h
+
+# Local tool caches and Python
+__pycache__/
+*.py[cod]
+.cache/
+.DS_Store
+Thumbs.db
