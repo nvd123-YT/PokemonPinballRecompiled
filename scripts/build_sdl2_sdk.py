@@ -92,6 +92,24 @@ def main() -> int:
     zig = zig_executable()
     source = download_source()
 
+    wrapper_dir = WORK / "tool-wrappers"
+    wrapper_dir.mkdir(parents=True, exist_ok=True)
+    if os.name == "nt":
+        ar = wrapper_dir / "zig-ar.cmd"
+        ranlib = wrapper_dir / "zig-ranlib.cmd"
+        ar.write_text(f'@echo off\n"{zig}" ar %*\n', encoding="utf-8")
+        ranlib.write_text(f'@echo off\n"{zig}" ranlib %*\n', encoding="utf-8")
+    else:
+        import shlex
+
+        quoted_zig = shlex.quote(str(zig))
+        ar = wrapper_dir / "zig-ar"
+        ranlib = wrapper_dir / "zig-ranlib"
+        ar.write_text(f"#!/bin/sh\nexec {quoted_zig} ar \"$@\"\n", encoding="utf-8")
+        ranlib.write_text(f"#!/bin/sh\nexec {quoted_zig} ranlib \"$@\"\n", encoding="utf-8")
+        ar.chmod(0o755)
+        ranlib.chmod(0o755)
+
     if SDK.exists():
         shutil.rmtree(SDK)
     build = WORK / "sdl2-build"
@@ -108,6 +126,12 @@ def main() -> int:
         "-DCMAKE_C_COMPILER_ARG1=cc",
         "-DCMAKE_CXX_COMPILER=" + str(zig),
         "-DCMAKE_CXX_COMPILER_ARG1=c++",
+        "-DCMAKE_AR=" + str(ar),
+        "-DCMAKE_RANLIB=" + str(ranlib),
+        "-DCMAKE_C_COMPILER_AR=" + str(ar),
+        "-DCMAKE_C_COMPILER_RANLIB=" + str(ranlib),
+        "-DCMAKE_CXX_COMPILER_AR=" + str(ar),
+        "-DCMAKE_CXX_COMPILER_RANLIB=" + str(ranlib),
         "-DSDL_SHARED=ON",
         "-DSDL_STATIC=OFF",
         "-DSDL_TEST=OFF",
