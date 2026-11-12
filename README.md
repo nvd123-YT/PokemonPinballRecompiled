@@ -14,34 +14,23 @@ Download a platform launcher from the [GitHub Releases page](https://github.com/
 
 Open the launcher, select your local Game Boy/Game Boy Color ROM, choose a build folder, and click **Build & Play**. The launcher remembers the selected paths. After the first successful build, use **Play Existing Build** to start it again without recompiling.
 
-The launcher package contains no game ROM, generated game code, or game executable. It downloads the ROM-free GB Recompiled tool package when needed and generates the game locally.
+The launcher package contains no game ROM, generated game code, or game executable. It does include the ROM-free GB Recompiled tool, CMake, Ninja, the Zig C/C++ compiler toolchain, and a platform-matched SDL2 development SDK. These are extracted privately by the launcher and used to generate and compile the game locally. No separate Python, CMake, Ninja, Zig, SDL2 SDK, Visual Studio, or vcpkg installation is required on Windows or Linux.
 
 ### Build prerequisites
 
-The launcher is a graphical front end; the native build tools are still required to compile the generated game.
+**Windows x64 and Linux x64**
+- No separate compiler or build-system installation is required; the launcher bundles those tools and its SDL2 SDK.
+- A normal desktop environment with the platform's graphics/audio runtime libraries is still required to run the game.
 
-**macOS**
-- Xcode Command Line Tools (Clang)
-- CMake 3.20 or newer
-- Ninja
-- SDL2 development files
+**macOS Apple silicon**
+- Xcode Command Line Tools are required for Apple's macOS system SDK and frameworks. Install them with `xcode-select --install` if they are not already present.
+- CMake, Ninja, Zig, the GB recompiler, and SDL2 development files are bundled with the launcher.
 
-The launcher automatically checks `~/Tools/SDL2` for SDL2 and searches common tool directories for CMake and Ninja.
+The Apple SDK is provided by Apple and is not redistributed inside this project. The launcher checks for it before configuring the native build and displays an actionable message if it is missing.
 
-**Windows x64**
-- Python is bundled in the launcher; no separate Python installation is required.
-- CMake 3.20 or newer and Ninja
-- Visual Studio 2022 with the Desktop development with C++ workload
-- vcpkg with SDL2 installed for x64: `vcpkg install sdl2:x64-windows`
-- Set `VCPKG_ROOT` to your vcpkg directory.
-
-**Linux x64 (Ubuntu/Debian)**
-- CMake, Ninja, a C/C++ toolchain, and SDL2 development files:
-
-    sudo apt update
-    sudo apt install python3 cmake ninja-build build-essential libsdl2-dev
-
-The launcher bundles Python and Tk. It does not install system compilers or SDL2 development packages.
+**Building from a source checkout**
+- Install Python 3.12, CMake, Ninja, and the Zig toolchain.
+- Build or install SDL2 development files for your platform, then run `python3 launcher.py` or `python3 build.py "/path/to/your/Pokemon Pinball.gbc"`.
 
 ## Graphics and runtime enhancements
 
