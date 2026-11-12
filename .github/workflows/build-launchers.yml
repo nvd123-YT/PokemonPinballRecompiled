@@ -9,10 +9,6 @@ on:
 permissions:
   contents: write
 
-concurrency:
-  group: pokemon-pinball-launcher-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   build:
     name: Build ${{ matrix.platform }} launcher
@@ -164,26 +160,29 @@ jobs:
           pattern: launcher-*
           merge-multiple: true
 
-      - name: Publish or update Nightly release
+      - name: Publish a new release for this build
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: Nightly
-          name: Nightly
-          prerelease: true
+          tag_name: build-${{ github.run_number }}
+          name: Build #${{ github.run_number }}
+          prerelease: false
           draft: false
-          make_latest: false
-          overwrite_files: true
+          make_latest: true
           files: release-assets/*
           body: |
-            Automatic desktop launcher builds from the latest main branch.
+            Automatic desktop launcher release for commit ${{ github.sha }}.
+
+            Every successful main-branch build receives its own release and
+            independent asset download counts. Older releases are not replaced.
 
             These downloads contain the launcher only, not Pokémon Pinball's ROM,
             generated game source, or game executable. Run the launcher and select
             a ROM stored locally on your own computer to generate your own build.
 
             The game runtime provides fullscreen display output, scaling modes,
-            pixel/linear filters, V-Sync, audio controls, speed controls, save
-            states, overlays, and input remapping. 8K output depends on the host
-            display and GPU and scales the original 160x144 Game Boy image.
+            the optional Widescreen Backdrop, pixel/linear filters, V-Sync,
+            audio controls, speed controls, save states, overlays, and input
+            remapping. 8K output is host display upscaling of the original
+            160x144 Game Boy frame.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
