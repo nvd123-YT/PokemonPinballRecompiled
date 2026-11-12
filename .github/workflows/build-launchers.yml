@@ -52,7 +52,7 @@ jobs:
         run: python -c "import tkinter, build, launcher; print('Tk and launcher imports OK')"
 
       - name: Compile-check sources
-        run: python -m py_compile build.py launcher.py scripts/build_sdl2_sdk.py scripts/stage_recompiler.py
+        run: python -m py_compile build.py launcher.py scripts/build_sdl2_sdk.py scripts/stage_sdl2_windows.py scripts/stage_recompiler.py
 
       - name: Install pinned bundled build toolchain
         run: python -m pip install --upgrade pip pyinstaller cmake==3.31.10 ninja==1.13.2 ziglang==0.17.1
@@ -89,8 +89,13 @@ jobs:
           print("Bundled Ninja:", tools / ("ninja.exe" if sys.platform == "win32" else "ninja"))
           print("Bundled Zig:", tools / "ziglang")
 
-      - name: Build relocatable SDL2 SDK for this platform
+      - name: Build relocatable SDL2 SDK for macOS and Linux
+        if: runner.os != 'Windows'
         run: python scripts/build_sdl2_sdk.py
+
+      - name: Stage official prebuilt SDL2 SDK for Windows
+        if: runner.os == 'Windows'
+        run: python scripts/stage_sdl2_windows.py
 
       - name: Bundle the ROM-free GB recompiler
         run: python scripts/stage_recompiler.py
