@@ -4,7 +4,11 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from build import apply_pokemon_pinball_enhancements
+from build import (
+    apply_pokemon_pinball_enhancements,
+    find_sdl2_cmake_dir,
+    recompiler_has_runtime_snapshot,
+)
 
 
 class WidescreenRuntimePatchTests(unittest.TestCase):
@@ -76,6 +80,35 @@ class WidescreenRuntimePatchTests(unittest.TestCase):
                 apply_pokemon_pinball_enhancements(Path(temp))
 
             self.assertEqual(source.read_text(encoding="utf-8"), original)
+
+
+
+class LocalBuildDependencyTests(unittest.TestCase):
+    def test_finds_sdl2_cmake_package_in_common_sdk_layout(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            package = root / "lib" / "cmake" / "SDL2"
+            package.mkdir(parents=True)
+            (package / "SDL2Config.cmake").write_text("# SDL2 test package\\n")
+
+            self.assertEqual(find_sdl2_cmake_dir(root), package)
+
+    def test_recompiler_requires_adjacent_runtime_snapshot(self) -> None:
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            executable = root / "bin" / "gbrecomp"
+            executable.parent.mkdir(parents=True)
+            executable.write_text("test binary")
+            self.assertFalse(recompiler_has_runtime_snapshot(executable))
+
+            runtime = root / "runtime"
+            (runtime / "include").mkdir(parents=True)
+            (runtime / "src").mkdir(parents=True)
+            (runtime / "vendor" / "imgui").mkdir(parents=True)
+            (runtime / "include" / "gbrt.h").write_text("/* test */")
+            (runtime / "src" / "gbrt.c").write_text("/* test */")
+            (runtime / "vendor" / "imgui" / "imgui.cpp").write_text("// test")
+            self.assertTrue(recompiler_has_runtime_snapshot(executable))
 
 
 if __name__ == "__main__":
