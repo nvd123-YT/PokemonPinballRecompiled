@@ -86,7 +86,7 @@ def download_recompiler() -> Path:
             / "bin"
             / "gbrecomp"
         )
-        if local.is_file():
+        if local.is_file() and recompiler_has_runtime_snapshot(local):
             return local
 
     asset = platform_asset()
@@ -99,7 +99,7 @@ def download_recompiler() -> Path:
     cache.mkdir(parents=True, exist_ok=True)
     extracted = cache / "tool"
     existing = find_recompiler(extracted) if extracted.exists() else None
-    if existing:
+    if existing and recompiler_has_runtime_snapshot(existing):
         return existing
 
     archive = cache / asset
@@ -138,15 +138,70 @@ def download_recompiler() -> Path:
 def choose_sdl2_root(argument: str | None) -> Path | None:
     candidate = argument or os.environ.get("SDL2_ROOT")
     if not candidate and platform.system() == "Darwin":
-        default = Path.home() / "Tools" / "SDL2"
-        if default.is_dir():
-            candidate = str(default)
+        defaults = [
+            Path.home() / "Tools" / "SDL2",
+            Path("/opt/homebrew/opt/sdl2"),
+            Path("/usr/local/opt/sdl2"),
+        ]
+        candidate_path = next((path for path in defaults if path.is_dir()), None)
+        if candidate_path is not None:
+            candidate = str(candidate_path)
     if candidate:
         root = Path(candidate).expanduser().resolve()
         if not root.is_dir():
             raise RuntimeError("SDL2 root directory not found: " + str(root))
         return root
     return None
+
+
+def find_sdl2_cmake_dir(sdl2_root: Path | None) -> Path | None:
+    """Find the SDL2 package directory required by the generated CMake project."""
+    configured = os.environ.get("SDL2_DIR")
+    if configured:
+        path = Path(configured).expanduser().resolve()
+        if (path / "SDL2Config.cmake").is_file() or (path / "sdl2-config.cmake").is_file():
+            return path
+
+    if sdl2_root is None:
+        return None
+
+    names = ("SDL2Config.cmake", "sdl2-config.cmake", "SDL2-config.cmake")
+    candidates = [
+        sdl2_root,
+        sdl2_root / "cmake",
+        sdl2_root / "lib" / "cmake" / "SDL2",
+        sdl2_root / "lib64" / "cmake" / "SDL2",
+        sdl2_root / "lib" / "x64" / "cmake" / "SDL2",
+        sdl2_root / "lib" / "cmake" / "SDL2-static",
+    ]
+    for directory in candidates:
+        if any((directory / name).is_file() for name in names):
+            return directory
+
+    # SDK archives differ in their nesting. Search the selected SDK only after
+    # checking the usual install locations above.
+    for name in names:
+        matches = sorted(sdl2_root.glob("**/" + name))
+        if matches:
+            return matches[0].parent
+    return None
+
+
+def recompiler_has_runtime_snapshot(executable: Path) -> bool:
+    """Check that gbrecomp can locate the runtime snapshot shipped beside it."""
+    candidates = [
+        executable.parent / "runtime",
+        executable.parent.parent / "runtime",
+        executable.parent.parent.parent / "runtime",
+    ]
+    for runtime in candidates:
+        if (
+            (runtime / "include" / "gbrt.h").is_file()
+            and (runtime / "src" / "gbrt.c").is_file()
+            and (runtime / "vendor" / "imgui" / "imgui.cpp").is_file()
+        ):
+            return True
+    return False
 
 
 def prepare_work_directory(work_dir: Path) -> None:
@@ -424,6 +479,15 @@ def main() -> int:
     ]
     if sdl2_root:
         cmake_command.append("-DCMAKE_PREFIX_PATH=" + str(sdl2_root))
+        cmake_command.append("-DSDL2_ROOT=" + str(sdl2_root))
+    sdl2_cmake_dir = find_sdl2_cmake_dir(sdl2_root)
+    if sdl2_cmake_dir:
+        cmake_command.append("-DSDL2_DIR=" + str(sdl2_cmake_dir))
+    elif sdl2_root:
+        print(
+            "Note: no SDL2Config.cmake was found under " + str(sdl2_root)
+            + "; CMake will still try its normal package search."
+        )
 
     if os.name == "nt":
         vcpkg_root = os.environ.get("VCPKG_ROOT")
