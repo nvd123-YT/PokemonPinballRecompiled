@@ -80,6 +80,22 @@ def launcher_environment(sdl2_root: str = "") -> dict[str, str]:
 
 def internal_build_mode() -> bool:
     if len(sys.argv) >= 2 and sys.argv[1] == "--internal-build":
+        # PyInstaller windowed builds set stdout/stderr to None. The launcher
+        # starts this same executable with redirected pipes for its build log.
+        for stream_name, descriptor in (("stdout", 1), ("stderr", 2)):
+            if getattr(sys, stream_name, None) is None:
+                try:
+                    stream = os.fdopen(
+                        os.dup(descriptor),
+                        "w",
+                        encoding="utf-8",
+                        errors="replace",
+                        buffering=1,
+                    )
+                except OSError:
+                    stream = open(os.devnull, "w", encoding="utf-8")
+                setattr(sys, stream_name, stream)
+
         sys.argv = ["build.py", *sys.argv[2:]]
         try:
             raise SystemExit(builder.main())
