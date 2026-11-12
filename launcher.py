@@ -433,25 +433,34 @@ class Launcher:
 
     def build_worker(self, command: list[str], launch_after_build: bool) -> None:
         env = launcher_environment(self.sdl_var.get())
+        log_path = app_config_path().parent / "latest-game-build.log"
         try:
+            log_path.parent.mkdir(parents=True, exist_ok=True)
             self.events.put(("log", "Starting local ROM build.\n"))
-            self.events.put(("log", "The ROM is not copied into the Git repository.\n\n"))
-            process = subprocess.Popen(
-                command,
-                cwd=str(Path.home()),
-                env=env,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                errors="replace",
-                bufsize=1,
-            )
-            assert process.stdout is not None
-            for line in process.stdout:
-                self.events.put(("log", line))
-            code = process.wait()
+            self.events.put(("log", "The ROM is not copied into the Git repository.\n"))
+            self.events.put(("log", "Full build log: " + str(log_path) + "\n\n"))
+            with log_path.open("w", encoding="utf-8", errors="replace") as log:
+                process = subprocess.Popen(
+                    command,
+                    cwd=str(Path.home()),
+                    env=env,
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    errors="replace",
+                    bufsize=1,
+                )
+                assert process.stdout is not None
+                for line in process.stdout:
+                    log.write(line)
+                    log.flush()
+                    self.events.put(("log", line))
+                code = process.wait()
             if code != 0:
-                self.events.put(("failed", f"Build failed with exit code {code}."))
+                self.events.put((
+                    "failed",
+                    f"Game build failed with exit code {code}. Full log: {log_path}",
+                ))
                 return
 
             work_dir = Path(self.work_var.get()).expanduser()
@@ -464,7 +473,10 @@ class Launcher:
                 self.events.put(("launch", str(executable)))
             self.events.put(("complete", "Build finished."))
         except Exception as exc:
-            self.events.put(("failed", "Build failed: " + str(exc)))
+            self.events.put((
+                "failed",
+                "Game build failed: " + str(exc) + f"\nFull log: {log_path}",
+            ))
 
     def process_events(self) -> None:
         try:
