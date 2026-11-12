@@ -131,6 +131,17 @@ def main() -> int:
     license_dir.mkdir(parents=True, exist_ok=True)
     shutil.copy2(license_source, license_dir / "LICENSE.txt")
 
+    # The one-file launcher extracts SDK data into a temporary directory.
+    # Materialize library symlinks now so the SDK remains portable when
+    # PyInstaller packages it as ordinary application data.
+    for path in list(SDK.rglob("*")):
+        if path.is_symlink():
+            target = path.resolve(strict=True)
+            if target.is_file():
+                payload = target.read_bytes()
+                path.unlink()
+                path.write_bytes(payload)
+
     config_names = ("SDL2Config.cmake", "sdl2-config.cmake", "SDL2-config.cmake")
     configs = [p for p in SDK.rglob("*") if p.is_file() and p.name in config_names]
     if not configs:
