@@ -25,6 +25,12 @@ ASSETS = {
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / "vendor-tools" / "gb-recompiled"
 CACHE = ROOT / ".build-deps"
+SHA256 = {
+    "gb-recompiled-linux-x64.tar.gz": "b77fbf8913a9dd770097df81e8e0f84cf2e0d9e3a44dc1a1ee4d1846c5035535",
+    "gb-recompiled-macos-arm64.tar.gz": "3881d643d0f7bf2eaa6ba83140b66c7de9b564eb70eba92f81f41d14d91758f9",
+    "gb-recompiled-macos-x64.tar.gz": "916ebdfefb0952fa8abed0bf985bd63b500033cd3bce5ad565434079d0ae3e77",
+    "gb-recompiled-windows-x64.zip": "81d67729a4bbefc4e7247e9fbf53f2909ee74bb77f6d1daacf3d1920ea245269",
+}
 
 
 def download(url: str, destination: Path) -> None:
@@ -47,21 +53,11 @@ def main() -> int:
         raise RuntimeError(f"No upstream recompiler package for {key}")
 
     CACHE.mkdir(parents=True, exist_ok=True)
-    checksum_file = CACHE / "gb-recompiled-SHA256SUMS.txt"
     archive = CACHE / asset
-    if not checksum_file.is_file():
-        download(BASE + "/SHA256SUMS.txt", checksum_file)
     if not archive.is_file():
         download(BASE + "/" + asset, archive)
 
-    expected = None
-    for line in checksum_file.read_text(encoding="utf-8").splitlines():
-        fields = line.strip().split()
-        if len(fields) >= 2 and fields[-1].lstrip("*") == asset:
-            expected = fields[0].lower()
-            break
-    if not expected:
-        raise RuntimeError(f"No checksum for {asset} in upstream SHA256SUMS.txt")
+    expected = SHA256[asset]
     actual = hashlib.sha256(archive.read_bytes()).hexdigest()
     if actual != expected:
         archive.unlink(missing_ok=True)
