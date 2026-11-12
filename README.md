@@ -6,7 +6,7 @@ A public, source-first local build project for Pokémon Pinball (Game Boy Color)
 
 ## Desktop launcher
 
-Download the latest platform launcher from the [Nightly Releases](https://github.com/nvd123-YT/PokemonPinballRecompiled/releases/tag/Nightly):
+Download a platform launcher from the [GitHub Releases page](https://github.com/nvd123-YT/PokemonPinballRecompiled/releases). Each successful build has its own release (for example, `Build #16`) and separate download counters, so older build statistics are preserved:
 
 - **macOS Apple silicon:** `PokemonPinballRecompiled-macos-arm64.dmg`
 - **Windows x64:** `PokemonPinballRecompiled.exe`
@@ -76,7 +76,7 @@ Use `python3 build.py --help` for command-line options.
 
 ## GitHub Actions
 
-Every push to `main` validates and packages the standalone launcher for macOS arm64, Windows x64, and Linux x64. Successful main-branch builds update the [Nightly release](https://github.com/nvd123-YT/PokemonPinballRecompiled/releases/tag/Nightly).
+Every push to `main` validates and packages the standalone launcher for macOS arm64, Windows x64, and Linux x64. Each successful main-branch build creates a new immutable, uniquely tagged GitHub Release (`build-<run number>`) with its own assets and download counters. Existing releases are not overwritten. Pull requests run validation and packaging checks but do not publish releases.
 
 The release contains the launcher only. It does not build or publish the game because GitHub runners do not receive a user's local ROM.
 
