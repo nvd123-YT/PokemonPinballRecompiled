@@ -210,7 +210,7 @@ class Launcher:
         self.browse_sdl_button.pack(side=tk.LEFT, padx=(8, 0))
         ttk.Label(
             sdk_frame,
-            text="Leave blank to use SDL2 installed in a standard system location.",
+            text="The launcher includes its own SDL2 SDK. Leave this blank unless you have a custom SDK.",
         ).pack(anchor=tk.W, pady=(7, 0))
 
         actions = ttk.Frame(outer)
