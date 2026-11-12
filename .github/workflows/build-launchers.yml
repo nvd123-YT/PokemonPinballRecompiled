@@ -145,10 +145,10 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
-  publish-nightly:
-    name: Publish launcher Nightly
+  publish-release:
+    name: Publish a release for every successful main build
     needs: build
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -164,6 +164,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: build-${{ github.run_number }}
+          target_commitish: ${{ github.sha }}
           name: Build #${{ github.run_number }}
           prerelease: false
           draft: false
