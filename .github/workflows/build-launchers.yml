@@ -18,7 +18,7 @@ jobs:
       matrix:
         include:
           - platform: macOS arm64
-            os: macos-14
+            os: macos-26
             artifact: macos
           - platform: Windows x64
             os: windows-latest
