@@ -67,7 +67,8 @@ class WidescreenRuntimePatchTests(unittest.TestCase):
             runtime.mkdir(parents=True)
             source = runtime / "platform_sdl.cpp"
             original = self.fixture_source().replace(
-                "static void draw_frame(void) {", "static void draw_frame_missing(void) {"
+                "    SDL_RenderCopy(g_renderer, g_texture, NULL, &g_game_viewport);\n",
+                "    SDL_RenderPresent(g_renderer);\n",
             )
             source.write_text(original, encoding="utf-8")
 
