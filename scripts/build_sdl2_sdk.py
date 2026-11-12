@@ -11,6 +11,7 @@ import importlib.util
 import os
 import shutil
 import subprocess
+import platform
 import sys
 import tarfile
 import urllib.request
@@ -114,9 +115,18 @@ def main() -> int:
         "-DSDL_EXAMPLES=OFF",
         "-DSDL_INSTALL_TESTS=OFF",
         "-DSDL_INSTALL=ON",
-        str(source),
-        str(build),
+        "-DCMAKE_INSTALL_NAME_DIR=@rpath",
     ]
+    if platform.system() == "Darwin":
+        xcrun = shutil.which("xcrun")
+        if not xcrun:
+            raise RuntimeError("Xcode Command Line Tools are required to build the macOS SDL2 SDK")
+        sdk = subprocess.check_output(
+            [xcrun, "--sdk", "macosx", "--show-sdk-path"], text=True
+        ).strip()
+        if sdk:
+            configure.append("-DCMAKE_OSX_SYSROOT=" + sdk)
+    configure.extend([str(source), str(build)])
     run(configure)
     run([
         str(cmake), "--build", str(build), "--parallel",
