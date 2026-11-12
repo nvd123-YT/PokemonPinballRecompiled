@@ -15,8 +15,8 @@ concurrency:
 
 jobs:
   build:
-    name: Build \${{ matrix.platform }} launcher
-    runs-on: \${{ matrix.os }}
+    name: Build ${{ matrix.platform }} launcher
+    runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
       matrix:
@@ -140,7 +140,7 @@ jobs:
       - name: Upload launcher package
         uses: actions/upload-artifact@v4
         with:
-          name: launcher-\${{ matrix.artifact }}
+          name: launcher-${{ matrix.artifact }}
           path: |
             dist/PokemonPinballRecompiled-macos-arm64.dmg
             dist/PokemonPinballRecompiled.exe
@@ -185,4 +185,4 @@ jobs:
             states, overlays, and input remapping. 8K output depends on the host
             display and GPU and scales the original 160x144 Game Boy image.
         env:
-          GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
