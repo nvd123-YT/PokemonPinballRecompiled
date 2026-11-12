@@ -354,9 +354,10 @@ class Launcher:
         if rom.suffix.lower() not in (".gb", ".gbc", ".sgb"):
             raise RuntimeError("The selected file must have a .gb, .gbc, or .sgb extension.")
 
-        work_dir = Path(self.work_var.get().strip()).expanduser()
-        if not str(work_dir):
+        work_text = self.work_var.get().strip()
+        if not work_text:
             raise RuntimeError("Choose a build output folder.")
+        work_dir = Path(work_text).expanduser()
 
         if getattr(sys, "frozen", False):
             command = [sys.executable, "--internal-build"]
@@ -401,7 +402,7 @@ class Launcher:
             self.events.put(("log", "The ROM is not copied into the Git repository.\n\n"))
             process = subprocess.Popen(
                 command,
-                cwd=str(Path(self.work_var.get()).expanduser()),
+                cwd=str(Path.home()),
                 env=env,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
@@ -425,6 +426,7 @@ class Launcher:
             self.events.put(("built", str(executable)))
             if launch_after_build:
                 self.events.put(("launch", str(executable)))
+            self.events.put(("complete", "Build finished."))
         except Exception as exc:
             self.events.put(("failed", "Build failed: " + str(exc)))
 
@@ -440,6 +442,8 @@ class Launcher:
                     self.log_line("\nBuild complete: " + value + "\n")
                 elif kind == "launch":
                     self.launch_game(Path(value))
+                elif kind == "complete":
+                    self.status_var.set(value)
                     self.set_busy(False)
                 elif kind == "failed":
                     self.status_var.set(value)
