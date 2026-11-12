@@ -480,12 +480,12 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
             "Generate and build Pokémon Pinball locally from a user-supplied "
-            "Game Boy or Game Boy Color ROM."
+            "Game Boy, Game Boy Color, or Super Game Boy ROM."
         )
     )
     parser.add_argument(
         "rom", nargs="?",
-        help="path to your locally stored .gb or .gbc ROM",
+        help="path to your locally stored .gb, .gbc, or .sgb ROM",
     )
     parser.add_argument(
         "--work-dir",
@@ -518,8 +518,8 @@ def main() -> int:
     rom = Path(rom_text).expanduser().resolve()
     if not rom.is_file():
         raise RuntimeError("ROM file not found: " + str(rom))
-    if rom.suffix.lower() not in (".gb", ".gbc"):
-        raise RuntimeError("Expected a .gb or .gbc ROM file.")
+    if rom.suffix.lower() not in (".gb", ".gbc", ".sgb"):
+        raise RuntimeError("Expected a .gb, .gbc, or .sgb ROM file.")
     if args.jobs < 1:
         raise RuntimeError("--jobs must be at least 1.")
 
