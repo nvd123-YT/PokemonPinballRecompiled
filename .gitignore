@@ -15,6 +15,14 @@
 *_main.c
 *_rom.c
 *_rom.h
+Pokemon_Pinball_*.c
+Pokemon_Pinball_*.h
+*.exe
+*.dll
+*.dylib
+*.AppImage
+*.dmg
+*.app/
 
 # Local tool caches and Python
 __pycache__/
