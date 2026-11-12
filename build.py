@@ -103,6 +103,24 @@ def bundled_sdl2_root() -> Path | None:
     return None
 
 
+def prepare_bundled_sdl2(work_dir: Path) -> Path | None:
+    """Copy the bundled SDK out of PyInstaller's temporary directory.
+
+    The compiled game outlives the launcher process, so its dynamic SDL2 library
+    must live at a stable user-data path rather than inside _MEIPASS.
+    """
+    bundled = bundled_sdl2_root()
+    if bundled is None:
+        return None
+    persistent = work_dir / ".toolchain" / "sdl2"
+    if find_sdl2_cmake_dir(persistent) is None:
+        if persistent.exists():
+            shutil.rmtree(persistent)
+        persistent.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copytree(bundled, persistent)
+    return persistent
+
+
 def bundled_recompiler_root() -> Path | None:
     candidate = bundled_tools_dir() / "gb-recompiled"
     return candidate if candidate.is_dir() else None
@@ -524,7 +542,11 @@ def main() -> int:
         raise RuntimeError("--jobs must be at least 1.")
 
     cmake, ninja, zig = resolve_build_tools()
-    sdl2_root = choose_sdl2_root(args.sdl2_root) or bundled_sdl2_root()
+    work_dir = Path(args.work_dir).expanduser().resolve()
+    prepare_work_directory(work_dir)
+
+    sdl2_override = choose_sdl2_root(args.sdl2_root)
+    sdl2_root = sdl2_override or prepare_bundled_sdl2(work_dir)
     if sdl2_root is None:
         raise RuntimeError(
             "The launcher is missing its bundled SDL2 development SDK. "
@@ -538,8 +560,6 @@ def main() -> int:
         )
     recompiler = download_recompiler()
 
-    work_dir = Path(args.work_dir).expanduser().resolve()
-    prepare_work_directory(work_dir)
     generated = work_dir / "generated"
     if generated.exists():
         shutil.rmtree(generated)
@@ -576,6 +596,8 @@ def main() -> int:
         "-DSDL2_ROOT=" + str(sdl2_root),
         "-DCMAKE_PREFIX_PATH=" + str(sdl2_root),
         "-DSDL2_DIR=" + str(sdl2_cmake_dir),
+        "-DCMAKE_BUILD_RPATH=" + str(sdl2_root / "lib"),
+        "-DCMAKE_INSTALL_RPATH=" + str(sdl2_root / "lib"),
     ]
     cmake_command.extend(cmake_compiler_arguments(zig))
 
