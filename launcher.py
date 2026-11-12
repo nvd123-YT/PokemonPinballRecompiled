@@ -69,11 +69,6 @@ def launcher_environment(sdl2_root: str = "") -> dict[str, str]:
     env["PATH"] = os.pathsep.join(path_entries + [existing])
 
     selected_sdl = sdl2_root.strip()
-    if not selected_sdl:
-        bundled_sdl = builder.bundled_sdl2_root()
-        if bundled_sdl is not None:
-            selected_sdl = str(bundled_sdl)
-
     if selected_sdl:
         sdl_root = Path(selected_sdl).expanduser()
         env["SDL2_ROOT"] = str(sdl_root)
@@ -513,10 +508,15 @@ class Launcher:
     def launch_game(self, executable: Path) -> None:
         try:
             work_dir = Path(self.work_var.get()).expanduser()
+            custom_sdl = self.sdl_var.get().strip()
+            persistent_sdl = work_dir / ".toolchain" / "sdl2"
+            runtime_sdl = custom_sdl or (
+                str(persistent_sdl) if persistent_sdl.is_dir() else ""
+            )
             process = subprocess.Popen(
                 [str(executable)],
                 cwd=str(work_dir),
-                env=launcher_environment(self.sdl_var.get()),
+                env=launcher_environment(runtime_sdl),
             )
             self.status_var.set("Game launched.")
             self.log_line("\nLaunched: " + str(executable) + "\n")
