@@ -26,7 +26,7 @@ jobs:
           python-version: "3.12"
 
       - name: Compile-check the builder
-        run: python -m py_compile build.py launcher.py scripts/build_sdl2_sdk.py scripts/stage_recompiler.py
+        run: python -m py_compile build.py launcher.py scripts/build_sdl2_sdk.py scripts/stage_sdl2_windows.py scripts/stage_recompiler.py
 
       - name: Test generated runtime enhancement
         run: python -m unittest discover -s tests -v
