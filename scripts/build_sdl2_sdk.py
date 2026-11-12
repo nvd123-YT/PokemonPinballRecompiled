@@ -119,6 +119,8 @@ def main() -> int:
     configure = [
         str(cmake),
         "-G", "Ninja",
+        "-S", str(source),
+        "-B", str(build),
         "-DCMAKE_MAKE_PROGRAM=" + str(ninja),
         "-DCMAKE_BUILD_TYPE=Release",
         "-DCMAKE_INSTALL_PREFIX=" + str(SDK),
@@ -150,7 +152,13 @@ def main() -> int:
         ).strip()
         if sdk:
             configure.append("-DCMAKE_OSX_SYSROOT=" + sdk)
-    configure.extend([str(source), str(build)])
+        # SDL2 enables Objective-C on macOS for its Cocoa backend. Zig handles
+        # the C and C++ sources, but the Objective-C driver must be Apple's
+        # Clang from the active Xcode Command Line Tools.
+        objc_compiler = subprocess.check_output(
+            [xcrun, "--find", "clang"], text=True
+        ).strip()
+        configure.append("-DCMAKE_OBJC_COMPILER=" + objc_compiler)
     run(configure)
     run([
         str(cmake), "--build", str(build), "--parallel",
