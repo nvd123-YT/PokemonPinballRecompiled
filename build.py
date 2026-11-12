@@ -222,6 +222,115 @@ def runtime_environment(sdl2_root: Path | None, binary: Path) -> dict[str, str]:
     return env
 
 
+def apply_pokemon_pinball_enhancements(generated: Path) -> None:
+    """Patch the generated local runtime with the optional widescreen backdrop.
+
+    The original 160x144 game viewport remains unchanged. The effect only fills
+    unused display space with a dimmed, linearly scaled copy of the current frame.
+    """
+    runtime_source = generated / "runtime" / "src" / "platform_sdl.cpp"
+    if not runtime_source.is_file():
+        raise RuntimeError(
+            "Generated SDL runtime source was not found: " + str(runtime_source)
+        )
+
+    source = runtime_source.read_text(encoding="utf-8")
+    if "POKEMON_PINBALL_WIDESCREEN_BACKDROP" in source:
+        print("Widescreen backdrop enhancement is already applied.")
+        return
+
+    replacements = [
+        (
+            "static GBRenderFilterMode g_render_filter_mode = GB_RENDER_FILTER_NEAREST;\\n",
+            (
+                "static GBRenderFilterMode g_render_filter_mode = GB_RENDER_FILTER_NEAREST;\\n"
+                "/* POKEMON_PINBALL_WIDESCREEN_BACKDROP: optional side-fill effect. */\\n"
+                "static bool g_widescreen_backdrop = false;\\n"
+            ),
+            "runtime display-state declaration",
+        ),
+        (
+            "                bool is_keyboard = strncmp(key, \\"keyboard.\\", 9) == 0;\\n",
+            (
+                "                if (strcmp(key, \\"display.widescreen_backdrop\\") == 0) {\\n"
+                "                    g_widescreen_backdrop = (strcmp(value, \\"0\\") != 0);\\n"
+                "                    continue;\\n"
+                "                }\\n"
+                "\\n"
+                "                bool is_keyboard = strncmp(key, \\"keyboard.\\", 9) == 0;\\n"
+            ),
+            "runtime preference loading",
+        ),
+        (
+            "    fprintf(file, \\"savestate.slot=%d\\\\n\\", g_savestate_slot);\\n",
+            (
+                "    fprintf(file, \\"savestate.slot=%d\\\\n\\", g_savestate_slot);\\n"
+                "    fprintf(file, \\"display.widescreen_backdrop=%d\\\\n\\",\\n"
+                "            g_widescreen_backdrop ? 1 : 0);\\n"
+            ),
+            "runtime preference saving",
+        ),
+        (
+            "            update_render_filter();\\n"
+            "        }\\n"
+            "\\n"
+            "        if (!g_fullscreen) {\\n"
+            "            int scale_idx = g_scale - 1;",
+            (
+                "            update_render_filter();\\n"
+                "        }\\n"
+                "\\n"
+                "        /* POKEMON_PINBALL_WIDESCREEN_BACKDROP */\\n"
+                "        if (ImGui::Checkbox(\\"Widescreen Backdrop\\", &g_widescreen_backdrop)) {\\n"
+                "            save_runtime_preferences();\\n"
+                "        }\\n"
+                "        ImGui::TextDisabled(\\n"
+                "            \\"Fills unused widescreen space with a dimmed copy of the current frame.\\");\\n"
+                "\\n"
+                "        if (!g_fullscreen) {\\n"
+                "            int scale_idx = g_scale - 1;"
+            ),
+            "graphics settings UI",
+        ),
+        (
+            "    SDL_RenderClear(g_renderer);\\n"
+            "    SDL_RenderCopy(g_renderer, g_texture, NULL, &g_game_viewport);",
+            (
+                "    SDL_RenderClear(g_renderer);\\n"
+                "    if (g_widescreen_backdrop) {\\n"
+                "        int backdrop_width = 0;\\n"
+                "        int backdrop_height = 0;\\n"
+                "        SDL_GetWindowSize(g_window, &backdrop_width, &backdrop_height);\\n"
+                "        if (backdrop_width > 0 && backdrop_height > 0) {\\n"
+                "            SDL_Rect backdrop = {0, 0, backdrop_width, backdrop_height};\\n"
+                "            SDL_SetTextureColorMod(g_texture, 36, 44, 40);\\n"
+                "#if SDL_VERSION_ATLEAST(2, 0, 12)\\n"
+                "            SDL_SetTextureScaleMode(g_texture, SDL_ScaleModeLinear);\\n"
+                "#endif\\n"
+                "            SDL_RenderCopy(g_renderer, g_texture, NULL, &backdrop);\\n"
+                "            SDL_SetTextureColorMod(g_texture, 255, 255, 255);\\n"
+                "            update_render_filter();\\n"
+                "        }\\n"
+                "    }\\n"
+                "    SDL_RenderCopy(g_renderer, g_texture, NULL, &g_game_viewport);"
+            ),
+            "frame presentation",
+        ),
+    ]
+
+    for old, new, label in replacements:
+        count = source.count(old)
+        if count != 1:
+            raise RuntimeError(
+                "Cannot safely apply widescreen enhancement: expected exactly "
+                + "one " + label + " anchor, found " + str(count)
+            )
+        source = source.replace(old, new, 1)
+
+    runtime_source.write_text(source, encoding="utf-8")
+    print("Applied optional Widescreen Backdrop to the generated runtime.")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description=(
@@ -301,6 +410,8 @@ def main() -> int:
             "--verbose",
         ]
     )
+
+    apply_pokemon_pinball_enhancements(generated)
 
     cmake_command = [
         "cmake",
