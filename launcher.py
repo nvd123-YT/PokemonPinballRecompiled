@@ -69,10 +69,10 @@ def launcher_environment(sdl2_root: str = "") -> dict[str, str]:
     env["PATH"] = os.pathsep.join(path_entries + [existing])
 
     selected_sdl = sdl2_root.strip()
-    if not selected_sdl and sys.platform == "darwin":
-        default_sdl = Path.home() / "Tools" / "SDL2"
-        if default_sdl.is_dir():
-            selected_sdl = str(default_sdl)
+    if not selected_sdl:
+        bundled_sdl = builder.bundled_sdl2_root()
+        if bundled_sdl is not None:
+            selected_sdl = str(bundled_sdl)
 
     if selected_sdl:
         sdl_root = Path(selected_sdl).expanduser()
@@ -137,12 +137,8 @@ class Launcher:
         self.work_var = tk.StringVar(
             value=self.config.get("work_dir", str(DEFAULT_WORK_DIR))
         )
-        default_sdl = Path.home() / "Tools" / "SDL2"
         self.sdl_var = tk.StringVar(
-            value=self.config.get(
-                "sdl2_root",
-                str(default_sdl) if default_sdl.is_dir() else "",
-            )
+            value=self.config.get("sdl2_root", "")
         )
         self.status_var = tk.StringVar(value="Ready")
         self.events: queue.Queue[tuple[str, str]] = queue.Queue()
@@ -201,7 +197,7 @@ class Launcher:
             text="Generated code, the executable, and local runtime files are kept here.",
         ).pack(anchor=tk.W, pady=(7, 0))
 
-        sdk_frame = ttk.LabelFrame(outer, text="SDL2 development files (optional path)", padding=12)
+        sdk_frame = ttk.LabelFrame(outer, text="Custom SDL2 SDK (optional override)", padding=12)
         sdk_frame.pack(fill=tk.X, pady=(0, 10))
         sdk_row = ttk.Frame(sdk_frame)
         sdk_row.pack(fill=tk.X)
