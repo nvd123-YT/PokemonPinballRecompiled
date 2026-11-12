@@ -36,3 +36,7 @@ Thumbs.db
 /AppDir/
 *.spec
 appimagetool.AppImage
+
+# CI-staged platform toolchains and SDKs
+/vendor-tools/
+/.build-deps/
