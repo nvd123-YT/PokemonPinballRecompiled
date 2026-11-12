@@ -47,15 +47,19 @@ While the game is running, press **F10** or **Escape** to open the built-in runt
 
 **Important resolution note:** the original Game Boy frame is 160×144 pixels. Fullscreen uses the current desktop display mode, so output can reach 4K or 8K on a compatible monitor/GPU/OS setup. That is output upscaling, not newly generated HD artwork or additional game detail. The Widescreen Backdrop fills unused screen space without changing the playfield. Aspect Fit shows the complete image without distortion; Aspect Fill fills the display by cropping part of the image; Stretch fills the display but distorts the original aspect ratio. None of these modes expands the game's original playfield or viewing area.
 
-## Build from source
+## Build from a source checkout
 
-Install Python 3, CMake, Ninja, a C/C++ compiler, and SDL2 development files, then run:
+The prebuilt desktop releases are the recommended route: they contain the matching CMake, Ninja, Zig compiler, SDL2 SDK, and ROM-free recompiler. A plain source checkout does not include those large platform-specific binaries.
+
+For a manual source build, install Python 3, CMake, Ninja, a native C/C++ compiler, and SDL2 development files. Then point the builder at your SDL2 SDK:
 
     python3 launcher.py
 
-Or build without the GUI:
+Or:
 
-    python3 build.py "/path/to/your/Pokemon Pinball.gbc"
+    python3 build.py "/path/to/your/Pokemon Pinball.gbc" --sdl2-root "/path/to/SDL2"
+
+On macOS, the Apple SDK from Xcode Command Line Tools is needed in either case.
 
 Generated source and build products are kept outside this Git repository by default, under:
 
